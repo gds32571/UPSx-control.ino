@@ -7,5 +7,3 @@
 #define SSID            "router name"
 #define SSIDPWD         "your wifi password"
 #endif
-
-
