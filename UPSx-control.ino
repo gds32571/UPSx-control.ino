@@ -142,7 +142,7 @@ const char* supportedHost = "RPi5";
 
 #ifdef OTA6
 const char* WiFi_hostname = "UPS-control-OTA6";
-const char* supportedHost = "zero4";
+const char* supportedHost = "Zero4";
 #endif
 
 const char* progname = "UPSx-control";
