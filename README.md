@@ -1,5 +1,5 @@
 # UPSx-control.ino
 Operating code for UPS3 controller
 
-For addional information on this project,
+For additional information and pictures on this project,
 refer to https://gswann.blogspot.com/2019/01/ups-project.html
