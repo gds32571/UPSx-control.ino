@@ -168,7 +168,7 @@ void handleHelp() {                     // If a GET request is made to URI /help
   server.send(200, "text/html", message);
 }
 
-//*************************************************
+//************************************************
 void handleNotFound() {
   //digitalWrite(led, 1);
   String message = "File Not Found\n\n";
