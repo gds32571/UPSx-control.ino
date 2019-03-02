@@ -4,6 +4,9 @@ now called
    *** now using Wemos D1 Mini Lite in newer versions
    Supports UPS3 circuit card in every location
 
+   2 Mar 2019 - v 1.5b
+   added text string to display ESP board type
+
    1 Mar 2019 - v 1.5a
    added ESP restart function
 
@@ -105,7 +108,8 @@ was
 // last loaded 14 Dec 2018 v 1.4e
 // last loaded 15 Feb 2019 v 1.4f
 // last loaded 28 Feb 2019 v 1.5
-// last loaded 2 Mar 2019 v 1.5a
+// last loaded 1 Mar 2019 v 1.5a
+// last loaded 2 Mar 2019 v 1.5b
 #define OTA5
 
 // last loaded 30 Dec 2018 v 1.4e
