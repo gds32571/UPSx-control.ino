@@ -8,8 +8,10 @@ void handleRoot() {
     myVal = 0;
   }
 
-  String message = "This is " + String(WiFi_hostname) + " at " + WiFi.localIP().toString() +" supporting host " + String(supportedHost) + "\n"
-                   + "Running " + String(progname) + " " + String(myVersion) + "\n"
+  String message = "This is " + String(WiFi_hostname) + " at " + WiFi.localIP().toString() +" supporting host " 
+                   + String(supportedHost) + "\n"
+                   + "Running " + String(progname) + " " + String(myVersion) 
+                   + " on a " + txtBoard +  "\n"
                    + "Reboots: "
                    + String(reboots) + strReboot + "\n"
                    + "Running for " + String(mySeconds) + " seconds"
@@ -78,7 +80,8 @@ void handleStop() {                     // If a GET request is made to URI /rebo
 
 //*************************************************
 void handlePause() {                      // If a GET request is made to URI /reboot
-  idleTimer = millis() + (5 * 60 * 1000); //   go idle for 5 minutes
+  //idleTimer = millis() + (5 * 60 * 1000);     //   go idle for 5 minutes
+  idleTimer = millis() + (1 * 60 * 60 * 1000); //   go idle for 1 hour
   mystate = WAIT;
   strReboot = (F("  UPS paused"));
   server.sendHeader("Location", "/");     // Add a header to respond with a new location for the browser to go to the home page again
@@ -151,6 +154,16 @@ void handleTest() {
 }
 
 //*************************************************
+
+void handleRestart(){
+  strReboot = (F("  Restarting ESP in 10 seconds"));
+  server.sendHeader("Location", "/");     // Add a header to respond with a new location for the browser to go to the home page again
+  server.send(303);                       // Send it back to the browser with an HTTP status 303 (See Other) to redirect
+  delay(10000);
+  ESP.restart();
+}
+
+//*************************************************
 void handleHelp() {                     // If a GET request is made to URI /help
 
   String message = "<html>This is " + String(WiFi_hostname) + "<br>"
@@ -160,15 +173,16 @@ void handleHelp() {                     // If a GET request is made to URI /help
                    + "<a href=./freeheap>" + "/freeheap</a> displays heap space<br>"
                    + "<a href=./con>" + "/con</a>      turns charger on<br>"
                    + "<a href=./coff>" + "/coff</a>     turns charger off<br>"
-                   + "<a href=./pause>" + "/pause</a>     pauses for 5 minutes<br>"
+                   + "<a href=./pause>" + "/pause</a>     pauses watchdog for 1 hour<br>"
                    + "<a href=./reboot>" + "/reboot</a>   to reboot the client computer<br>"
+                   + "<a href=./restart>" + "/restart</a>   to restart the ESP controller<br>"
                    + "<a href=./stop>" + "/stop</a>     to halt the client, and then power off the client and the UPS (ESP8266)<br>"
                    + "<a href=./help>" + "/help</a>     to display this page<br></html>";
 
   server.send(200, "text/html", message);
 }
 
-//************************************************
+//*************************************************
 void handleNotFound() {
   //digitalWrite(led, 1);
   String message = "File Not Found\n\n";

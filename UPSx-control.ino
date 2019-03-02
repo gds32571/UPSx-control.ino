@@ -1,19 +1,30 @@
 /****************************************************************
 now called
    UPSx-control.ino
+   *** now using Wemos D1 Mini Lite in newer versions
    Supports UPS3 circuit card in every location
 
-   old (on Breadboard) - Use board WeMos D1 R2 & Mini for OTA to work correctly
-   now using Wemos D1 Mini Lite
-  
+   1 Mar 2019 - v 1.5a
+   added ESP restart function
 
+   28 Feb 2019 - v 1.5
+   added code to disable reboots if reboot count is very high
+
+   27 Feb 2019 - v 1.4g
+   added MDNS text for supported host - didn't work!
+
+   15 Feb 2019 - v 1.4f
+   Changed pause function to 1 hour vice 5 minutes.
+
+   OLD (on Breadboard) - Use board WeMos D1 R2 & Mini for OTA to work correctly
+   
 was
      UPS-reboot-OTA.ino
      gswann
      16 May 2018
 
    Runs in Pace at 192.168.1.138 supporting Zero3
-   Runs in Villages at 192.168.2.58 supporting Rp5
+   Runs in Villages at 192.168.2.31 supporting Rp5
    Runs in Villages at 192.168.2.61 supporting Zero4
    
    Now called UPS-reboot-OTA-chg-noAIO and runs on host UPS2 supporting Zero3
@@ -88,14 +99,19 @@ was
 ****************************************************************/
 // which host are we compiling for?
 
-// last loaded 29 Nov 2018  v 1.4d
+// last loaded 29 Nov 2018  v 1.4e
 // #define OTA3
 
 // last loaded 14 Dec 2018 v 1.4e
-// #define OTA5
+// last loaded 15 Feb 2019 v 1.4f
+// last loaded 28 Feb 2019 v 1.5
+// last loaded 2 Mar 2019 v 1.5a
+#define OTA5
 
 // last loaded 30 Dec 2018 v 1.4e
-#define OTA6
+// last loaded 27 Feb 2019 v 1.4f
+// last loaded 1 Mar 2019 v 1.5a
+// #define OTA6
 
 
 #include <Arduino.h>
@@ -133,21 +149,24 @@ ESP8266WebServer server(80);
 #ifdef OTA3
 const char* WiFi_hostname = "UPS-control-OTA3";
 const char* supportedHost = "Zero3";
+const char* board = "check_in_Pace";
 #endif
 
 #ifdef OTA5
 const char* WiFi_hostname = "UPS-control-OTA5";
 const char* supportedHost = "RPi5";
+const char* txtBoard = "ESP8266_Wemos_D1_mini_Lite";
 #endif
 
 #ifdef OTA6
 const char* WiFi_hostname = "UPS-control-OTA6";
-const char* supportedHost = "Zero4";
+const char* supportedHost = "zero4";
+const char* txtBoard = "ESP8266_WeMos_D1_mini_Lite";
 #endif
 
 const char* progname = "UPSx-control";
 
-const char* myVersion = "v1.4e";
+const char* myVersion = "v1.5a";
 
 //const int led = LED_BUILTIN; // blue LED on the ESP board
 
@@ -184,6 +203,7 @@ void handleStop(void);
 void handleHelp(void);
 void handleFreeheap(void);
 void handleLEDTest(void);
+void handleRestart(void);
 void handleTest(void);
 void handleNotFound(void);
 void setupOTA(void);
@@ -193,6 +213,8 @@ unsigned int mystate = WAIT;
 String strAIO = "Off";   // now used as flag to signal reboot
 bool pwroff = false;     // turn everything off 
 unsigned int reboots = 0;
+const unsigned int maxReboots = 25;
+
 unsigned int sensorValue;
 float voltage;
 float sumVoltage = 0;
@@ -281,6 +303,7 @@ void setup() {
   server.on("/pause", handlePause);
   server.on("/freeheap", handleFreeheap);
   server.on("/ledtest", handleLEDTest);
+  server.on("/restart", handleRestart);
   server.on("/test", handleTest);
   server.on("/help", handleHelp);
   server.onNotFound(handleNotFound);
@@ -463,7 +486,13 @@ void loop() {
   server.handleClient();
   /////
 
-  if (strAIO.equals("On") and (mystate == IDL || mystate == WAIT)) {
+// 28 Feb 2019
+  if (reboots >= maxReboots){
+    Serial.println(F("*** Max reboots exceeded!"));
+    strReboot = (F("    Max reboots exceeded"));
+  }
+
+  if (strAIO.equals("On") and (reboots < maxReboots) and (mystate == IDL || mystate == WAIT)) {
     mystate = SHUTDOWN1 ;
     stateMillis = millis();
     Serial.println(F("*** Start shutdown sequence!"));
@@ -536,7 +565,6 @@ void loop() {
 //*************************************************
 void setupWifi()
 {
-  //      WiFi.begin("<<SSID>>", "<<PASSWORD>>");
 
   WiFi.mode(WIFI_STA);
   WiFi.hostname(WiFi_hostname);
@@ -555,6 +583,7 @@ void setupWifi()
   if (MDNS.begin(WiFi_hostname)) {
     Serial.println(F("MDNS responder started"));
     MDNS.addService("http", "tcp", 80);
+//    MDNS.addServiceTxt("arduino","tcp","supports",supportedHost);
   }
 
 }
