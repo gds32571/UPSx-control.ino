@@ -18,7 +18,7 @@ void handleRoot() {
                    + "  DM time to go: "
                    + String(myVal) + "\n" // + "  Flag = " + strAIO + " dmTimer " + dmTimer +"\n"
                    + "Battery voltage(avg): "
-                   + String(avgVoltage) + "\n"
+                   + String(avgVoltage) + " @ " + String(tempF2,1)+ " degrees F\n"
                    + "Supply power is ";
   if (!digitalRead(inPwr)) {
     message += "on\n";
@@ -35,6 +35,8 @@ void handleRoot() {
   }
 
   message += " for " + String(sinceCharge) + " seconds\n";
+
+//  message += "temp = " + ;
 
   // end message creation
 
@@ -109,6 +111,11 @@ void handleLEDTest() {
     delay(tdel);
     digitalWrite(batOK, LOW);
   }
+
+// resync attiny during LED test  
+// 23 Apr 2019
+    resetATTiny();
+  
   for (int ii = 0; ii < 5 ; ii++) {
     sendATTiny(chgOn);
     sendATTiny(stopOn);

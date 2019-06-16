@@ -1,8 +1,18 @@
 /****************************************************************
-now called
+  now called
    UPSx-control.ino
    *** now using Wemos D1 Mini Lite in newer versions
    Supports UPS3 circuit card in every location
+
+
+   23 Apr 2019 - v 1.5c
+   using software reset for ATTiny during LED test
+   Don't forget to do a LED test at intervals, such as a crontab entry:
+
+  5 1,13 * * * /usr/bin/curl http://ups-control-ota5./ledtest   >/dev/null 2>&1
+  6 1,13 * * * /usr/bin/curl http://ups-control-ota6./ledtest   >/dev/null 2>&1
+  7 1,13 * * * /usr/bin/curl http://ups-control-ota7./ledtest   >/dev/null 2>&1
+
 
    2 Mar 2019 - v 1.5b
    added text string to display ESP board type
@@ -20,8 +30,8 @@ now called
    Changed pause function to 1 hour vice 5 minutes.
 
    OLD (on Breadboard) - Use board WeMos D1 R2 & Mini for OTA to work correctly
-   
-was
+
+  was
      UPS-reboot-OTA.ino
      gswann
      16 May 2018
@@ -29,10 +39,10 @@ was
    Runs in Pace at 192.168.1.138 supporting Zero3
    Runs in Villages at 192.168.2.31 supporting Rp5
    Runs in Villages at 192.168.2.61 supporting Zero4
-   
+
    Now called UPS-reboot-OTA-chg-noAIO and runs on host UPS2 supporting Zero3
    The design uses ATTiny44 and runs on the SwannCo UPS3 circuit board
- 
+
    Design progression and history:
      UPS monitor and control
      Reads an Adafruit AIO button to determine whether to reboot
@@ -49,7 +59,7 @@ was
 
      This code version matches the "as-built" hardware (3 June 2018)
 
-...reversed dates...
+  ...reversed dates...
 
   29 nov 2018 - v 1.4e
     added supportedHost variable
@@ -61,17 +71,18 @@ was
   26 Nov 2018 - v 1.4c
      lowered low battery value to 9.0 (because of RP5 batteries) and reloaded
 
-  19 Nov 2018  
+  19 Nov 2018
      changed program name
      using #define and #ifdef to have ONE file for all hardware
      1.4b - wait until first deadman pulse seen before activating watchdog
 
-  18 Nov 2018 
+  18 Nov 2018
      adapted to run in Villages
      Supporting rp5
 
   7 Nov 2018 - v 1.3
     Changed charge control to use ATTiny (bread board prototype used ESP output)
+    See: ATtiny44_SS_Digitalout.ino
     UPS-control-OTA3 (at 192.168.1.138) supports zero3
     This program would not start up UPS3 card with Wemos D1 Mini
 
@@ -79,7 +90,7 @@ was
     added seconds counter for charger on/off time
 
   8 Oct 2018
-    Moved character arrays to program memory  
+    Moved character arrays to program memory
 
   30 Sept 2018
     Broke down and started working to add deadman functionality. Spent a rainy
@@ -103,6 +114,8 @@ was
 // which host are we compiling for?
 
 // last loaded 29 Nov 2018  v 1.4e
+// last loaded 19 Mar 2019  v 1.5b
+// last loaded 6 May 2019  v 1.5c - needs new ATTiny programmed
 // #define OTA3
 
 // last loaded 14 Dec 2018 v 1.4e
@@ -110,13 +123,24 @@ was
 // last loaded 28 Feb 2019 v 1.5
 // last loaded 1 Mar 2019 v 1.5a
 // last loaded 2 Mar 2019 v 1.5b
-#define OTA5
+// last loaded 23 Apr 2019 v 1.5c - ATTiny was reprogrammed
+// added DS18B20 temperature sensor
+// last loaded 8 Jun 2019 v 1.5d 
+// #define OTA5
 
 // last loaded 30 Dec 2018 v 1.4e
 // last loaded 27 Feb 2019 v 1.4f
 // last loaded 1 Mar 2019 v 1.5a
-// #define OTA6
+// last loaded 6 Mar 2019 v 1.5b
+// last loaded 23 Apr 2019 v 1.5c - ATTiny was reprogrammed
+// last loaded 8 Jun 2019 v 1.5d 
+#define OTA6
 
+// built new UPS3v2 board for rp6
+// with DS18B20 temperature sensor
+// loaded 8 Jun 2019 v 1.5d
+// used existing ATTiny that was labelled v2 
+// #define OTA7
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -126,6 +150,9 @@ was
 
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 ESP8266WebServer server(80);
 
@@ -150,27 +177,36 @@ ESP8266WebServer server(80);
 // ota3 (192.168.1.138) supports zero3
 // ota5 supports rp5
 
+const char* progname = "UPSx-control";
+const char* myVersion = "v1.5d";
+
 #ifdef OTA3
 const char* WiFi_hostname = "UPS-control-OTA3";
 const char* supportedHost = "Zero3";
-const char* board = "check_in_Pace";
+const char* txtBoard = "ESP8266_WeMos_D1_mini_Lite";
+const float factor = 3.815;
 #endif
 
 #ifdef OTA5
 const char* WiFi_hostname = "UPS-control-OTA5";
 const char* supportedHost = "RPi5";
-const char* txtBoard = "ESP8266_Wemos_D1_mini_Lite";
+const char* txtBoard = "ESP8266_WeMos_D1_mini_Lite";
+const float factor = 3.8946;
 #endif
 
 #ifdef OTA6
 const char* WiFi_hostname = "UPS-control-OTA6";
 const char* supportedHost = "zero4";
 const char* txtBoard = "ESP8266_WeMos_D1_mini_Lite";
+const float factor = 3.8946;
 #endif
 
-const char* progname = "UPSx-control";
-
-const char* myVersion = "v1.5a";
+#ifdef OTA7
+const char* WiFi_hostname = "UPS-control-OTA7";
+const char* supportedHost = "rp6";
+const char* txtBoard = "ESP8266_WeMos_D1_mini_Lite";
+const float factor = 3.7514;
+#endif
 
 //const int led = LED_BUILTIN; // blue LED on the ESP board
 
@@ -192,7 +228,7 @@ const int myLed = D8;      // GPIO15 = status LED program running active blinker
 #define stopOn    "01"   // client halt button
 #define stopOff   "00"
 
-// changed after running only 10 minutes after power failure or so on ota5 
+// changed after running only 10 minutes after power failure or so on ota5
 // to be fair - those batteries were over-discharged in Pace earlier
 const float batLow = 9.0;    // 9.5;
 // const float batLow = 10.0;  // for testing
@@ -215,12 +251,13 @@ void setupOTA(void);
 unsigned int mystate = WAIT;
 
 String strAIO = "Off";   // now used as flag to signal reboot
-bool pwroff = false;     // turn everything off 
+bool pwroff = false;     // turn everything off
 unsigned int reboots = 0;
 const unsigned int maxReboots = 25;
 
 unsigned int sensorValue;
 float voltage;
+// float factor;
 float sumVoltage = 0;
 float avgVoltage = 0;
 
@@ -236,7 +273,7 @@ const long oneSecond = 1000;
 unsigned long stateMillis;
 unsigned long dmTimer = 0;
 
-unsigned long idleTimer = 120000;
+unsigned long idleTimer = 300000;   // was 120000
 
 bool seenDM = false;
 bool stateDM = false;
@@ -250,7 +287,11 @@ int batLowctr = 0;
 
 unsigned long sinceCharge = 0;
 unsigned long mySeconds = 1;    // fixes discrepancy with initial sinceCharge
- 
+
+float tempF;
+float tempF2;
+
+
 //***************************************************
 // The hardware UARTs share the same baud rate generator !!
 void sendATTiny(char *SerOut) {
@@ -260,20 +301,41 @@ void sendATTiny(char *SerOut) {
   Serial.begin(115200);
 }
 
+// to support software reset
+void resetATTiny() {
+  Serial1.begin(300);
+  for (int ii = 0 ; ii < 3; ii++) {
+    Serial1.print("r");
+    delay(1000);
+  }
+  Serial.begin(115200);
+}
+
+// Data wire is plugged into pin D7 on the ESP8266 - GPIO 13
+#define ONE_WIRE_BUS 13
+
+// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
+OneWire oneWire(ONE_WIRE_BUS);
+
+// Pass our oneWire reference to Dallas Temperature.
+DallasTemperature DS18B20(&oneWire);
+//char temperatureCString[7];
+//char temperatureFString[7];
+
 //***************************************************
 void setup() {
 
   pinMode(inPwr, INPUT_PULLUP);
   pinMode(inDM, INPUT);    // INPUT_PULLDOWN_16);
-  
+
   // setup the LEDs
   pinMode(batOK, OUTPUT);
-//  pinMode(cctl, OUTPUT);
+  //  pinMode(cctl, OUTPUT);
   pinMode(warning, OUTPUT);
   pinMode(myLed, OUTPUT);
 
   digitalWrite(batOK, HIGH);    // green  - on    = battery ok   blink = battery low
-//  digitalWrite(cctl, HIGH);     // yellow - on    = charger off
+  //  digitalWrite(cctl, HIGH);     // yellow - on    = charger off
   digitalWrite(warning, HIGH);  // blue   - on    = reboot or shutdown in progress
   digitalWrite(myLed, HIGH);    // red    - blink = program running
   //   delay(1000);
@@ -291,7 +353,7 @@ void setup() {
   sendATTiny(stopOff);   // RPi reset off
 
   sendATTiny(chgOff);   // RPi reset off
-  
+
   Serial.begin(115200);
   Serial.println();
   Serial.println("Program " + String(progname) + " starting...");
@@ -327,18 +389,13 @@ void setup() {
   digitalWrite(warning, LOW);
   digitalWrite(myLed, LOW);
 
-   sensorValue = analogRead(A0);
+  sensorValue = analogRead(A0);
 
-#ifdef OTA3
-    voltage = ((sensorValue * (3.815 * 3.36)) / 1024.0);   
-#endif
-#ifdef OTA5
-    voltage = ((sensorValue * (3.8946 * 3.36)) / 1024.0);   
-#endif
-#ifdef OTA6
-    voltage = ((sensorValue * (3.8946 * 3.36)) / 1024.0);   
-#endif
+  voltage = ((sensorValue * (factor * 3.36)) / 1024.0);
 
+  // IC Default 9 bit. If you have troubles consider upping it 12.
+  // Ups the delay giving the IC more time to process the temperature measurement
+  DS18B20.begin();
   avgVoltage = voltage;
 
   stateDM = digitalRead(inDM);
@@ -346,13 +403,30 @@ void setup() {
   strReboot = (F(" waiting for initial boot"));
   currentMillis = millis();
 
+  getTemperature();
+
 }
 
+void getTemperature() {
+  float tempC;
+  //  float tempF;
+  do {
+    DS18B20.requestTemperatures();
+    tempC = DS18B20.getTempCByIndex(0);
+    tempF = DS18B20.getTempFByIndex(0);
+    delay(100);
+  } while (tempC == 85.0 || tempC == (-127.0));
+
+  tempF2 = (tempF * 10) + 0.5 ;
+  int inttempF = (int)tempF2;
+  tempF2 = (float) inttempF / 10;
+
+}
 
 //***************************************************
 void loop() {
 
-  // wait two minutes after initial bootup before starting WD monitor
+  // wait five (was two) minutes after initial bootup before starting WD monitor
   // also allow UPS pause from web server
   if ( (mystate == WAIT) && (seenDM  == true) && (millis() > idleTimer) ) {
     mystate = IDL;
@@ -376,17 +450,7 @@ void loop() {
     // voltage = ((3.2 * sensorValue * (((110+980)/110)) ) / 1023.0);
     // 3.815 for ota3   3.8946 for ota5
 
-#ifdef OTA3
-   voltage = ((sensorValue * (3.815 * 3.36)) / 1024.0);   
-#endif
-
-#ifdef OTA5
-    voltage = ((sensorValue * (3.8946 * 3.36)) / 1024.0);   
-#endif
-
-#ifdef OTA6
-    voltage = ((sensorValue * (3.8946 * 3.36)) / 1024.0);   
-#endif
+    voltage = ((sensorValue * (factor * 3.36)) / 1024.0);
 
     sumVoltage += voltage;
     cntSeconds += 1;
@@ -415,9 +479,11 @@ void loop() {
         sendATTiny(stopOff);  // RPi reset off
       }
 
+      getTemperature();
+
     } // every 60 seconds
 
-    // the battery LED is solid in normal operation if wall 
+    // the battery LED is solid in normal operation if wall
     // power is on. When battery voltage <= batLow,
     // it blinks
 
@@ -448,12 +514,12 @@ void loop() {
 
     //***************************************************
 
-// do not start watchdog until deadman signal has been seen
-    if (mystate == WAIT){
-       bool mystateDM = digitalRead(inDM);
-       if (mystateDM == true){
-          seenDM = true; 
-       }
+    // do not start watchdog until deadman signal has been seen
+    if (mystate == WAIT) {
+      bool mystateDM = digitalRead(inDM);
+      if (mystateDM == true) {
+        seenDM = true;
+      }
     }
 
     if (mystate == IDL ) {
@@ -479,19 +545,19 @@ void loop() {
     }
     //***************************************************
 
-  // how long (seconds) since charger turned on or off
+    // how long (seconds) since charger turned on or off
     sinceCharge += 1;
-  // runtime in seconds  
+    // runtime in seconds
     mySeconds += 1;
-     
+
   }  // every second
 
   /////
   server.handleClient();
   /////
 
-// 28 Feb 2019
-  if (reboots >= maxReboots){
+  // 28 Feb 2019
+  if (reboots >= maxReboots) {
     Serial.println(F("*** Max reboots exceeded!"));
     strReboot = (F("    Max reboots exceeded"));
   }
@@ -587,7 +653,7 @@ void setupWifi()
   if (MDNS.begin(WiFi_hostname)) {
     Serial.println(F("MDNS responder started"));
     MDNS.addService("http", "tcp", 80);
-//    MDNS.addServiceTxt("arduino","tcp","supports",supportedHost);
+    //    MDNS.addServiceTxt("arduino","tcp","supports",supportedHost);
   }
 
 }
@@ -632,4 +698,3 @@ void setupOTA() {
   ArduinoOTA.begin();
 
 }
-
