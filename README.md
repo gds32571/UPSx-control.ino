@@ -4,5 +4,5 @@ Operating code for UPS3 controller
 For additional information and pictures on this project,
 refer to
 
-The blogdpot website editor deleted my blog then autosaved it.
+The blogspot website editor deleted my blog then autosaved it.
 
