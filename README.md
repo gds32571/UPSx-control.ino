@@ -2,7 +2,4 @@
 Operating code for UPS3 controller
 
 For additional information and pictures on this project,
-refer to
-
-The blogspot website editor deleted my blog then autosaved it.
-
+refer to https://gswann.blogspot.com/2019/01/ups-project.html
